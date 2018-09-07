@@ -1,0 +1,411 @@
+---
+# RHEL 6 SCAP Remediations
+# Benchmark ID: xccdf_org.ssgproject.content_benchmark_RHEL-6
+# Profile ID: xccdf_org.ssgproject.content_profile_standard
+
+################################### High Severity Remediations ###################################
+- name: "Disable SSH Access via Empty Passwords"
+  lineinfile:
+    create: yes
+    path: /etc/ssh/sshd_config
+    regexp: '^PermitEmptyPasswords'
+    line: PermitEmptyPasswords no
+
+- name: "Prevent Log In to Accounts With Empty Password - system-auth"
+  replace:
+    path: /etc/pam.d/system-auth
+    follow: yes
+    regexp: 'nullok'
+
+- name: "Prevent Log In to Accounts With Empty Password - password-auth"
+  replace:
+    path: /etc/pam.d/password-auth
+    follow: yes
+    regexp: 'nullok'
+
+################################### Medium Severity Remediations ###################################
+- name: "Do Not Allow SSH Environment Options"
+  lineinfile:
+    create: yes
+    dest: /etc/ssh/sshd_config
+    regexp: ^PermitUserEnvironment
+    line: PermitUserEnvironment no
+
+- name: "Use Only Approved Ciphers"
+  lineinfile:
+    create: yes
+    dest: /etc/ssh/sshd_config
+    regexp: ^Ciphers
+    line: Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc,aes192-cbc,aes256-cbc
+
+- name: "Enable SSH Warning Banner"
+  lineinfile:
+    create: yes
+    dest: /etc/ssh/sshd_config
+    regexp: ^Banner
+    line: Banner /etc/issue
+
+- name: "Ensure aide is installed"
+  package:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - aide
+
+- name: "Disable SSH Root Login"
+  lineinfile:
+    create: yes
+    dest: "/etc/ssh/sshd_config"
+    regexp: "^PermitRootLogin"
+    line: "PermitRootLogin no"
+    insertafter: '(?i)^#?authentication'
+
+- name: "Ensure sysctl kernel.randomize_va_space is set to 2"
+  sysctl:
+    name: kernel.randomize_va_space
+    value: 2
+    state: present
+    reload: yes
+
+# These can be consolidated into one call and populating "with_items"...
+- name: "Ensure group owner 0 on /etc/group"
+  file:
+    path: "{{ item }}"
+    group: 0
+  with_items:
+    - /etc/group
+
+- name: "Ensure group owner 0 on /etc/passwd"
+  file:
+    path: "{{ item }}"
+    group: 0
+  with_items:
+    - /etc/passwd
+
+- name: "Ensure owner 0 on /etc/group"
+  file:
+    path: "{{ item }}"
+    owner: 0
+  with_items:
+    - /etc/group
+
+- name: "Ensure owner 0 on /etc/shadow"
+  file:
+    path: "{{ item }}"
+    owner: 0
+  with_items:
+    - /etc/shadow
+
+- name: "Ensure group owner 0 on /etc/gshadow"
+  file:
+    path: "{{ item }}"
+    group: 0
+  with_items:
+    - /etc/gshadow
+
+- name: "Ensure owner 0 on /etc/passwd"
+  file:
+    path: "{{ item }}"
+    owner: 0
+  with_items:
+    - /etc/passwd
+
+- name: "Ensure group owner 0 on /etc/shadow"
+  file:
+    path: "{{ item }}"
+    group: 0
+  with_items:
+    - /etc/shadow
+
+- name: "Ensure owner 0 on /etc/gshadow"
+  file:
+    path: "{{ item }}"
+    owner: 0
+  with_items:
+    - /etc/gshadow
+
+- name: "XCCDF Value var_accounts_tmout # promote to variable"
+  set_fact:
+    var_accounts_tmout: !!str |-
+        600
+  tags:
+    - always
+
+- name: "Set Interactive Session Timeout"
+  lineinfile:
+      create: yes
+      dest: /etc/profile
+      regexp: ^#?TMOUT
+      line: "TMOUT={{ var_accounts_tmout }}"
+
+- name: "Ensure screen is installed"
+  package:
+    name: "{{item}}"
+    state: present
+  with_items:
+    - screen
+
+- name: "Set Password Hashing Algorithm in /etc/login.defs"
+  lineinfile:
+      dest: /etc/login.defs
+      regexp: ^#?ENCRYPT_METHOD
+      line: ENCRYPT_METHOD SHA512
+      state: present
+
+- name: "Set Password Hashing Algorithm in /etc/libuser.conf"
+  lineinfile:
+    dest: /etc/libuser.conf
+    insertafter: "^.default]"
+    regexp: ^#?crypt_style
+    line: crypt_style = sha512
+    state: present
+
+- name: "XCCDF Value var_accounts_passwords_pam_faillock_deny # promote to variable"
+  set_fact:
+    var_accounts_passwords_pam_faillock_deny: !!str |-
+        3
+  tags:
+    - always
+
+- name: "XCCDF Value var_accounts_passwords_pam_faillock_unlock_time # promote to variable"
+  set_fact:
+    var_accounts_passwords_pam_faillock_unlock_time: !!str |-
+        never
+  tags:
+    - always
+
+- name: "XCCDF Value var_accounts_passwords_pam_faillock_fail_interval # promote to variable"
+  set_fact:
+    var_accounts_passwords_pam_faillock_fail_interval: !!str |-
+        900
+  tags:
+    - always
+
+- name: "set auth pam_faillock before pam_unix.so"
+  pamd:
+    name: system-auth
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: required
+    new_module_path: pam_faillock.so
+    module_arguments: 'preauth
+        silent
+        deny: {{ var_accounts_passwords_pam_faillock_deny }}
+        unlock_time={{ var_accounts_passwords_pam_faillock_unlock_time }}
+        fail_interval={{ var_accounts_passwords_pam_faillock_fail_interval }}'
+    state: before
+
+- name: "set auth pam_faillock after pam_unix.so"
+  pamd:
+    name: system-auth
+    type: auth
+    control: sufficient
+    module_path: pam_unix.so
+    new_type: auth
+    new_control: '[default=die]'
+    new_module_path: pam_faillock.so
+    module_arguments: 'preauth
+        silent
+        deny: {{ var_accounts_passwords_pam_faillock_deny }}
+        unlock_time={{ var_accounts_passwords_pam_faillock_unlock_time }}
+        fail_interval={{ var_accounts_passwords_pam_faillock_fail_interval }}'
+    state: after
+
+- name: "set account pam_faillock before pam_unix.so"
+  pamd:
+    name: system-auth
+    type: account
+    control: required
+    module_path: pam_unix.so
+    new_type: account
+    new_control: required
+    new_module_path: pam_faillock.so
+    state: before
+
+- name: "XCCDF Value var_accounts_minimum_age_login_defs # promote to variable"
+  set_fact:
+    var_accounts_minimum_age_login_defs: !!str |-
+        7
+  tags:
+    - always
+
+- name: "Set Password Minimum Age"
+  lineinfile:
+      create: yes
+      dest: /etc/login.defs
+      regexp: ^#?PASS_MIN_DAYS
+      line: "PASS_MIN_DAYS {{ var_accounts_minimum_age_login_defs }}"
+
+- name: "XCCDF Value var_accounts_maximum_age_login_defs # promote to variable"
+  set_fact:
+    var_accounts_maximum_age_login_defs: !!str |-
+        90
+  tags:
+    - always
+
+- name: "Set Password Maximum Age"
+  lineinfile:
+    create: yes
+    dest: /etc/login.defs
+    regexp: ^#?PASS_MAX_DAYS
+    line: "PASS_MAX_DAYS {{ var_accounts_maximum_age_login_defs }}"
+
+- name: "Restrict Virtual Console Root Logins"
+  lineinfile:
+    dest: /etc/securetty
+    regexp: '^vc'
+    state: absent
+
+- name: "Ensure kernel module 'dccp' is disabled"
+  lineinfile:
+    create: yes
+    dest: "/etc/modprobe.d/{{item}}.conf"
+    regexp: '{{item}}'
+    line: "install {{item}} /bin/true"
+  with_items:
+    - dccp
+
+- name: "Ensure kernel module 'sctp' is disabled"
+  lineinfile:
+    create: yes
+    dest: "/etc/modprobe.d/{{item}}.conf"
+    regexp: '{{item}}'
+    line: "install {{item}} /bin/true"
+  with_items:
+    - sctp
+
+- name: "Enable service iptables"
+  service:
+    name: "{{item}}"
+    enabled: "yes"
+    state: "started"
+  with_items:
+    - iptables
+
+- name: "XCCDF Value sysctl_net_ipv4_conf_default_secure_redirects_value # promote to variable"
+  set_fact:
+    sysctl_net_ipv4_conf_default_secure_redirects_value: !!str |-
+        0
+  tags:
+    - always
+
+- name: "Ensure sysctl net.ipv4.conf.default.secure_redirects is set"
+  sysctl:
+    name: net.ipv4.conf.default.secure_redirects
+    value: "{{ sysctl_net_ipv4_conf_default_secure_redirects_value }}"
+    state: present
+    reload: yes
+
+- name: "XCCDF Value sysctl_net_ipv4_conf_default_accept_redirects_value # promote to variable"
+  set_fact:
+    sysctl_net_ipv4_conf_default_accept_redirects_value: !!str |-
+        0
+  tags:
+    - always
+
+- name: "Ensure sysctl net.ipv4.conf.default.accept_redirects is set"
+  sysctl:
+    name: net.ipv4.conf.default.accept_redirects
+    value: "{{ sysctl_net_ipv4_conf_default_accept_redirects_value }}"
+    state: present
+    reload: yes
+
+- name: "XCCDF Value sysctl_net_ipv4_conf_all_rp_filter_value # promote to variable"
+  set_fact:
+    sysctl_net_ipv4_conf_all_rp_filter_value: !!str |-
+        1
+  tags:
+    - always
+
+- name: "Ensure sysctl net.ipv4.conf.all.rp_filter is set"
+  sysctl:
+    name: net.ipv4.conf.all.rp_filter
+    value: "{{ sysctl_net_ipv4_conf_all_rp_filter_value }}"
+    state: present
+    reload: yes
+
+- name: "XCCDF Value sysctl_net_ipv4_conf_all_secure_redirects_value # promote to variable"
+  set_fact:
+    sysctl_net_ipv4_conf_all_secure_redirects_value: !!str |-
+        0
+  tags:
+    - always
+
+- name: "Ensure sysctl net.ipv4.conf.all.secure_redirects is set"
+  sysctl:
+    name: net.ipv4.conf.all.secure_redirects
+    value: "{{ sysctl_net_ipv4_conf_all_secure_redirects_value }}"
+    state: present
+    reload: yes
+
+- name: "XCCDF Value sysctl_net_ipv4_conf_all_accept_redirects_value # promote to variable"
+  set_fact:
+    sysctl_net_ipv4_conf_all_accept_redirects_value: !!str |-
+        0
+  tags:
+    - always
+
+- name: "Ensure sysctl net.ipv4.conf.all.accept_redirects is set"
+  sysctl:
+    name: net.ipv4.conf.all.accept_redirects
+    value: "{{ sysctl_net_ipv4_conf_all_accept_redirects_value }}"
+    state: present
+    reload: yes
+
+- name: "XCCDF Value sysctl_net_ipv4_conf_all_accept_source_route_value # promote to variable"
+  set_fact:
+    sysctl_net_ipv4_conf_all_accept_source_route_value: !!str |-
+        0
+  tags:
+    - always
+
+- name: "Ensure sysctl net.ipv4.conf.all.accept_source_route is set"
+  sysctl:
+    name: net.ipv4.conf.all.accept_source_route
+    value: "{{ sysctl_net_ipv4_conf_all_accept_source_route_value }}"
+    state: present
+    reload: yes
+
+- name: "XCCDF Value sysctl_net_ipv4_icmp_echo_ignore_broadcasts_value # promote to variable"
+  set_fact:
+    sysctl_net_ipv4_icmp_echo_ignore_broadcasts_value: !!str |-
+        1
+  tags:
+    - always
+
+- name: "Ensure sysctl net.ipv4.icmp_echo_ignore_broadcasts is set"
+  sysctl:
+    name: net.ipv4.icmp_echo_ignore_broadcasts
+    value: "{{ sysctl_net_ipv4_icmp_echo_ignore_broadcasts_value }}"
+    state: present
+    reload: yes
+
+- name: "Ensure sysctl net.ipv4.conf.default.send_redirects is set to 0"
+  sysctl:
+    name: net.ipv4.conf.default.send_redirects
+    value: 0
+    state: present
+    reload: yes
+
+- name: "Ensure sysctl net.ipv4.conf.all.send_redirects is set to 0"
+  sysctl:
+    name: net.ipv4.conf.all.send_redirects
+    value: 0
+    state: present
+    reload: yes
+
+- name: "Ensure owner 0 on /boot/grub/grub.conf"
+  file:
+    path: "{{ item }}"
+    owner: 0
+  with_items:
+    - /boot/grub/grub.conf
+
+- name: "Ensure group owner 0 on /boot/grub/grub.conf"
+  file:
+    path: "{{ item }}"
+    group: 0
+  with_items:
+    - /boot/grub/grub.conf
