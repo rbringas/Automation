@@ -1,0 +1,8 @@
+---
+# Edit these variables to match your environment...
+vcenter_username: # The vcenter_username can be a service account with limited privileges
+vcenter_pass:     # Password for your vcenter user. USE Ansible Vault so the credential remains encrypted!
+vm_guest:         # The server name or VM name
+esxi_datacenter:  # The name of your Datacenter in VCenter
+esxi_hostname:    # The hostname of the esxi host where the VM will be provisioned
+iso_datastore:    # Location of boot ISO /{{esxi_datacenter}}/datastore/ISO_Files/

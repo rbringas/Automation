@@ -1,0 +1,36 @@
+---
+# This playbook will modify an existing VM and will mount an iso for provisioning using govc
+# https://github.com/vmware/govmomi/blob/master/govc/USAGE.md
+# Author: Raul Bringas
+
+- include_vars:
+    dir: 'vars/'
+
+- name: Add cdrom to virtual machine
+  command: "/go/bin/govc device.cdrom.add -vm {{ vm_guest | upper }}"
+  no_log: true
+  environment:
+    # Edit GOVC_URL to point to your VCenter FQDN...
+    GOVC_URL: "https://Your-VCenter-FQDN"
+    GOVC_USERNAME: "{{ vcenter_username }}"
+    GOVC_PASSWORD: "{{ vcenter_pass }}"
+
+- name: Mount ISO on Virtual Machine
+  # The Satellite boot ISO stored as "ISO_Files/{{vm_guest}}.iso" will be mounted to this VM for provisioning
+  # Change the path to reflect the path of the ISOS in your environment
+  command: "/go/bin/govc device.cdrom.insert -vm {{ vm_guest | upper }} -ds={{ iso_datastore }} ISO_Files/{{ vm_guest | lower }}.iso"
+  no_log: true
+  environment:
+    # Edit GOVC_URL to point to your VCenter FQDN...
+    GOVC_URL: "https://Your-VCenter-FQDN"
+    GOVC_USERNAME: "{{ vcenter_username }}"
+    GOVC_PASSWORD: "{{ vcenter_pass }}"
+
+- name: Power on Virtual Machine
+  command: "/go/bin/govc vm.power -on {{ vm_guest | upper }}"
+  no_log: true
+  environment:
+    # Edit GOVC_URL to point to your VCenter FQDN...
+    GOVC_URL: "https://Your-VCenter-FQDN"
+    GOVC_USERNAME: "{{ vcenter_username }}"
+    GOVC_PASSWORD: "{{ vcenter_pass }}"

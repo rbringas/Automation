@@ -1,0 +1,14 @@
+---
+# Edit these variables to match your environment...
+vcenter_username: # The vcenter_username can be a service account with limited privileges
+vcenter_pass:     # Password for your vcenter user. USE Ansible Vault so the credential remains encrypted!
+vm_guest:         # The server name or VM name
+esxi_datacenter:  # The name of your Datacenter in VCenter
+esxi_hostname:    # The hostname of the esxi host where the VM will be provisioned
+datastore:        # The path to the datastore on your esxi_host /{{ esxi_datacenter }}/datastore/
+guest_id:         # Edit this value to match the correct GuestOS ID
+vm_notes:         # Edit this to add notes to the VM
+vm_network:       # This is the value of the network that should be assigned to your VM
+vm_cpu:           # Edit this value to reflect the amount of VCPU assigned to the VM
+vm_memory:        # Edit this value to reflect the amount of RAM assigned to the VM
+vm_disk:          # Edit this value to reflect the disk size (in GB) assigned to the VM

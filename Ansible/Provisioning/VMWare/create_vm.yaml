@@ -1,0 +1,4 @@
+- hosts: localhost
+    
+  roles:
+    - create_vm_govc

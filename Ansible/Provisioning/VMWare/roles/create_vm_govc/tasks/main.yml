@@ -1,0 +1,26 @@
+---
+# This playbook will create a new VM using govc
+# The hot-add CPU and Memory settings will also be enabled
+# https://github.com/vmware/govmomi/blob/master/govc/USAGE.md
+# Author: Raul Bringas
+
+- include_vars:
+    dir: 'vars/'
+
+- name: Create New VM
+  command: /go/bin/govc vm.create -annotation="{{ vm_notes }}" -m="{{ vm_memory }}" -c="{{ vm_cpu }}" -disk="{{ vm_disk }}GB" -ds="{{ datastore }}" -folder=/"{{ esxi_datacenter }}"/vm/ -g="{{ guest_id }}" -host="{{ esxi_hostname }}" -net="{{ vm_network }}" -net.adapter=vmxnet3 -on=false "{{ vm_guest | upper }}"
+
+  environment:
+    # Edit GOVC_URL to point to your VCenter FQDN...
+    GOVC_URL: "https://Your-VCenter-FQDN"
+    GOVC_USERNAME: "{{ vcenter_username }}"
+    GOVC_PASSWORD: "{{ vcenter_pass }}"
+
+- name: Add CPU and Memory hot-add
+  command: /go/bin/govc vm.change -vm "{{ vm_guest | upper }}" -e vcpu.hotadd=TRUE -e mem.hotadd=TRUE
+
+  environment:
+    # Edit GOVC_URL to point to your VCenter FQDN...
+    GOVC_URL: "https://Your-VCenter-FQDN"
+    GOVC_USERNAME: "{{ vcenter_username }}"
+    GOVC_PASSWORD: "{{ vcemter_pass }}"
