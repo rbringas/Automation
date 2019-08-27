@@ -77,7 +77,7 @@ sudo systemctl start docker
 # Optional: Change default admin username to something else
 # sudo sed -i 's/admin_user=admin/admin_user=CHANGEME' /opt/awx/installer/inventory
 echo -n "Changing Default AWX Tower password..."
-sudo sed -i 's/admin_password=password/admin_password=Ch4ng3M3N0w!' /opt/awx/installer/inventory
+sudo sed -i 's/admin_password=password/admin_password=Ch4ng3M3N0w' /opt/awx/installer/inventory
 
 # Run the installer
 echo -n "Starting AWX installation..."
