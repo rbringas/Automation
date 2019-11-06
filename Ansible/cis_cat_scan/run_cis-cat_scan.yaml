@@ -1,0 +1,66 @@
+---
+# Author: Raul Bringas
+# raulbringasjr@gmail.com
+# Version: 0.2
+# Date: 11-01-2019
+# Tested on: RHEL 6/7, CentOS 6/7
+
+# Ansible playbook to run CIS Benchmark scan on selected hosts
+# Requires membership to CIS in order to download CIS-CAT assessment tool and benchmarks!
+# https://workbench.cisecurity.org/
+
+# Edit all values marked with *Change ME* to match your environment
+
+- name: "Run CIS benchmark scan with CIS-CAT tool"
+  hosts: all
+  become: True
+
+  vars:
+    customer_email: "*Change ME* YOUR_EMAIL@YOUR_DOMAIN.COM"
+    ciscat_tar_path: "/opt/cis"   
+    ciscat_tools_path: "{{ ciscat_tar_path }}/cis-cat-full/"
+    
+    # Change this to point to the path of the CIS-CAT Pro Assessor tarball package
+    ciscat_tar_file: "cis_cat_full.tar.gz"
+
+  tasks:
+  - name: "Create temporary directory for CIS-CAT tools"
+    file:
+      path: "{{ ciscat_tar_path }}"
+      state: directory
+
+  - name: "Extract CIS-CAT Tools tarball into {{ciscat_tar_path}}"
+    unarchive:
+      src: "{{ ciscat_tar_file }}"
+      dest: "{{ ciscat_tar_path }}"
+
+  - name: "Installing CIS-CAT dependencies"
+    package:
+      name: java
+      state: latest
+
+  - name: "Running a CIS-CAT scan on {{ ansible_hostname }}"
+    # Run the auto assessment for all applicable CIS benchmarks
+    command: ./CIS-CAT.sh -a -aa -csv -r "{{ ciscat_tar_path }}" -rn "{{ ansible_hostname }}"
+    args:
+      chdir: "{{ ciscat_tools_path }}"
+    register: ciscat_cmd
+
+  - name: "Sending email with CIS Benchmark report for {{ ansible_hostname }}."
+    mail:
+      host: "*Change ME* YOUR_SMTP_SERVER_HERE"
+      subject: 'CIS Compliance Scan for {{ ansible_hostname }} has completed.'
+      from: "*Change ME* YOUR_EMAIL_SENDER_ADDRESS_HERE"
+      body: "Automated CIS Compliance scan of {{ ansible_hostname }} has completed.  Attached, please find the results of the compliance scan."
+      to: "{{ customer_email }}"
+      attach:
+        - "{{ ciscat_tar_path }}/{{ ansible_hostname }}.html"
+        - "{{ ciscat_tar_path }}/{{ ansible_hostname }}.csv"
+      charset: utf8
+    delegate_to: "{{ ansible_hostname }}"
+    tags: mail
+
+  - name: "Remove CIS-CAT tool, report files, and tarball"
+    file:
+      path: "{{ ciscat_tar_path }}"
+      state: absent
