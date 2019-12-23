@@ -4,7 +4,7 @@
 
 # Author: Raul Bringas (@raulbringasjr)
 # Tested on: CentOS 8
-# Version: 0.1 - 12/20/2019
+# Version: 0.2 - 12/23/2019
 
 # Check to ensure the platform is CentOS
 osRelease=`cat /etc/redhat-release | cut -f1 -d" "`
@@ -18,7 +18,6 @@ else
 fi
 
 # Random passwords generated during installation
-## Check /opt/awx/installer/inventory file after install to find random passwords ##
 AWX_ADMIN=`openssl rand -base64 30`
 AWX_PG_ADMIN=`openssl rand -base64 30`
 AWX_PG=`openssl rand -base64 10`
@@ -26,12 +25,6 @@ AWX_SECRET=`openssl rand -base64 30`
 
 # AWX Inventory file used for installation
 AWX_INVENTORY=/opt/awx/installer/inventory
-
-# Set selinux to disabled (FOR DEV)
-# Will determine what context or booleans needed for PROD
-echo -n "Disabling SELINUX - DANGER WILL ROBINSON..."
-sudo setenforce 0
-sudo sed -i 's/SELINUX=enforcing/SELINUX=disabled/g' /etc/selinux/config
 
 # Install dependencies
 echo -n "Installing Dependencies..."
@@ -88,16 +81,20 @@ sudo systemctl start docker
 
 # Change default passwords and awx secret to a good strong password
 echo -n "Changing Default AWX Tower password..."
-sudo sed -i "s/admin_password=password/admin_password=${AWX_ADMIN}/g" ${AWX_INVENTORY}
+# Using different delimeters to avoid issues due to '/' in generated password
+sudo sed -i "s;admin_password=password;admin_password=${AWX_ADMIN};g" ${AWX_INVENTORY}
 
 echo -n "Changing Default AWX PG password..."
-sudo sed -i "s/pg_password=awxpass/pg_password=${AWX_PG}/g" ${AWX_INVENTORY}
+# Using different delimeters to avoid issues due to '/' in generated password
+sudo sed -i "s;pg_password=awxpass;pg_password=${AWX_PG};g" ${AWX_INVENTORY}
 
 echo -n "Changing Default AWX PG Admin password..."
-sudo sed -i "s/# pg_admin_password=postgrespass/pg_admin_password=${AWX_PG_ADMIN}/g" ${AWX_INVENTORY}
+# Using different delimeters to avoid issues due to '/' in generated password
+sudo sed -i "s;# pg_admin_password=postgrespass;pg_admin_password=${AWX_PG_ADMIN};g" ${AWX_INVENTORY}
 
 echo -n "Changing Default AWX Secret key..."
-sudo sed -i "s/secret_key=awxsecret/secret_key=${AWX_SECRET}/g" ${AWX_INVENTORY}
+# Using different delimeters to avoid issues due to '/' in generated password
+sudo sed -i "s;secret_key=awxsecret;secret_key=${AWX_SECRET};g" ${AWX_INVENTORY}
 
 # Changes the second occurence to python3 to use the correct interpreter
 # anisble_python_interpreter="/usr/bin/env python3"
@@ -114,13 +111,10 @@ echo -n "Adjusting Permissions on Inventory file..."
 chmod 0400 ${AWX_INVENTORY}
 
 # Setup Firewall rules for AWX Tower
-firewall-cmd --zone=public --add-port=80/tcp
-firewall-cmd --zone=public --add-port=443/tcp
+sudo firewall-cmd --zone=public --permanent --add-port=80/tcp
+sudo firewall-cmd --zone=public --permanent --add-port=443/tcp
 
 # Need to add this for the NFT upgrade from IPTables on CentOS8
 # This enables docker to communicate externally
-firewall-cmd --zone=public --add-masquerade --permanent
-firewall-cmd --reload
-
-# Setup SELinux rules/context for AWX Tower
-# Must use audit2allow to troubleshoot and determine what is needed...
+sudo firewall-cmd --zone=public --add-masquerade --permanent
+sudo firewall-cmd --reload
